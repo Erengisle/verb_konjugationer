@@ -2,7 +2,7 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<title>Svensk Verbkonjugationer</title>
+<title>Svensk Verbkonjugering (Gratis)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -47,7 +47,7 @@
   <div class="info-box">
     Använder <strong>Google Gemini (gratis)</strong> – inget betalkort krävs. Hämta din gratis API-nyckel på
     <a href="https://aistudio.google.com" target="_blank" style="color:#2b6cb0;">aistudio.google.com</a> → "Get API key".
-    Verben bearbetas i ~62 omgångar, tar <strong>4–7 minuter</strong>.
+    Verben bearbetas i ~62 omgångar med 5 sekunders paus emellan (max 15 anrop/min), tar ca <strong>8–10 minuter</strong>.
   </div>
 
   <div style="margin-bottom:20px;">
@@ -175,12 +175,12 @@ async function startProcessing() {
       } catch(e) {
         attempt++;
         log(`⚠ Omgång ${bi+1} försök ${attempt} misslyckades: ${e.message}`, 'err');
-        if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
+        if (attempt < 3) await new Promise(r => setTimeout(r, 10000)); // wait 10s before retry
       }
     }
     if (!ok) log(`✗ Omgång ${bi+1} hoppas över efter 3 försök.`, 'err');
-    // small delay to avoid rate limits
-    await new Promise(r => setTimeout(r, 300));
+    // 5s delay to stay within Gemini free tier (max 15 req/min)
+    await new Promise(r => setTimeout(r, 5000));
   }
 
   running = false;
