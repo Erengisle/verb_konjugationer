@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Svensk Verbkonjugering (Gratis)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #f0f4f8; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 30px 20px; }
+  .card { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); padding: 36px; width: 100%; max-width: 700px; }
+  h1 { font-size: 1.6rem; color: #1a202c; margin-bottom: 8px; }
+  p.subtitle { color: #4a5568; font-size: 0.95rem; margin-bottom: 28px; }
+  .info-box { background: #ebf8ff; border: 1px solid #bee3f8; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 0.9rem; color: #2b6cb0; }
+  .progress-section { margin-bottom: 28px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 0.88rem; color: #4a5568; margin-bottom: 8px; }
+  .progress-bar { background: #e2e8f0; border-radius: 999px; height: 12px; overflow: hidden; }
+  .progress-fill { background: linear-gradient(90deg, #4299e1, #667eea); height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+  .status { font-size: 0.9rem; color: #4a5568; margin-top: 10px; min-height: 1.4em; }
+  .status.error { color: #e53e3e; }
+  .status.success { color: #38a169; }
+  .log { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; height: 180px; overflow-y: auto; font-size: 0.82rem; color: #2d3748; font-family: monospace; margin-bottom: 24px; }
+  .log p { margin-bottom: 4px; }
+  .log p.ok { color: #38a169; }
+  .log p.err { color: #e53e3e; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: #4299e1; color: white; }
+  .btn-primary:hover:not(:disabled) { background: #3182ce; }
+  .btn-green { background: #48bb78; color: white; }
+  .btn-green:hover:not(:disabled) { background: #38a169; }
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .spinner { width: 18px; height: 18px; border: 3px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .preview { margin-top: 28px; }
+  .preview h3 { font-size: 1rem; color: #1a202c; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { background: #edf2f7; text-align: left; padding: 8px 10px; color: #4a5568; font-weight: 600; }
+  td { padding: 6px 10px; border-bottom: 1px solid #f0f4f8; color: #2d3748; }
+  tr:hover td { background: #f7fafc; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🇸🇪 Svensk Verbkonjugering</h1>
+  <p class="subtitle">Genererar 5 verbformer + grupp för 1 223 svenska verb – helt gratis via Google Gemini.</p>
+
+  <div class="info-box">
+    Använder <strong>Mistral AI (gratis)</strong> – inget betalkort krävs. Hämta din gratis API-nyckel på
+    <a href="https://console.mistral.ai" target="_blank" style="color:#2b6cb0;">console.mistral.ai</a> → "API Keys" → "Create new key".
+    Verben bearbetas i ~62 omgångar med 5 sekunders paus emellan, tar ca <strong>6–8 minuter</strong>.
+  </div>
+
+  <div style="margin-bottom:20px;">
+    <label style="display:block;font-size:0.88rem;font-weight:600;color:#4a5568;margin-bottom:6px;">
+      Mistral AI API-nyckel <span style="font-weight:400;color:#e53e3e">*krävs</span>
+    </label>
+    <input id="api-key" type="password" placeholder="..." style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:0.9rem;outline:none;" />
+  </div>
+
+  <div class="progress-section">
+    <div class="progress-label">
+      <span id="prog-text">Ej startad</span>
+      <span id="prog-count">0 / 1223</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+    <div class="status" id="status-msg">Klicka "Starta" för att börja.</div>
+  </div>
+
+  <div class="log" id="log"></div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" id="btn-start" onclick="startProcessing()">
+      <span>▶ Starta</span>
+    </button>
+    <button class="btn btn-green" id="btn-download" onclick="downloadExcel()" disabled>
+      ⬇ Ladda ner Excel
+    </button>
+  </div>
+
+  <div class="preview" id="preview" style="display:none">
+    <h3>Förhandsgranskning (första 10 verb)</h3>
+    <table id="preview-table">
+      <thead><tr><th>Infinitiv</th><th>Imperativ</th><th>Presens</th><th>Preteritum</th><th>Supinum</th><th>Grupp</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const VERBS = ["abdikera","acceptera","adoptera","adressera","aktivera","amma","ana","analysera","andas","anfalla","anföra","ange","angripa","anhålla","anklaga","anknyta","anlägga","anlända","anmäla","annonsera","anordna","anpassa","anse","ansluta","anstränga","anställa","ansvara","ansöka","anta","anteckna","använda","applådera","arbeta","arrangera","asa","assistera","attackera","avancera","avbryta","avfyra","avfärda","avgöra","avlida","avlägga","avlösa","avse","avskaffa","avsky","avsluta","avslöja","avspegla","avstå","avsätta","avvakta","avvika","backa","bada","baka","banka","banta","basera","be","bearbeta","bebygga","bedriva","bedöma","befalla","befolka","begagna","begrava","begripa","begränsa","begynna","begå","begåva","begära","behandla","behålla","behärska","behöva","bejubla","bekanta","beklaga","bekräfta","bekymra","bekämpa","bekänna","belasta","belöna","bereda","berika","bero","berusa","beräkna","berätta","berömma","beröva","besegra","besiktiga","beskriva","beskylla","besluta","bestiga","bestå","beställa","bestämma","besvara","besöka","beta","betala","beteckna","betona","betrakta","beträda","betunga","betyda","beundra","bevaka","bevara","bevisa","bidra","bifoga","bila","bilda","binda","bita","bjuda","blanda","blekna","bli","blixtra","blomma","blunda","blåsa","bläddra","blänga","blänka","blöda","bo","boka","borra","borsta","bortse","bota","bre","brevväxla","brinna","brodera","bromsa","bruka","brygga","bryta","bråka","bräcka","bränna","buga","bukta","bygga","byta","bädda","bära","böja","bölja","böra","börja","campa","chansa","chatta","chocka","chockera","cirkulera","citera","cykla","dala","damma","dammsuga","dansa","darra","datorisera","debutera","definiera","dekorera","dela","delegera","delta","demonstrera","designa","dirigera","diska","diskriminera","diskutera","disponera","distrahera","dofta","dokumentera","dominera","donera","doppa","dra","drabba","dricka","driva","drunkna","dryfta","dröja","drömma","dua","duka","dunka","duscha","dyka","dö","döda","dölja","döma","döpa","efterlysa","efterträda","emigrera","engagera","erbjuda","erkänna","ersätta","etablera","exemplifiera","existera","expandera","experimentera","explodera","exportera","falla","fantisera","fara","fascinera","fastna","fastställa","fatta","femdubbla","festa","fika","filma","filmatisera","filosofera","finansiera","finhacka","finna","fira","fiska","fixa","flina","fly","flyga","flyta","flytta","flämta","flöda","fnittra","fnysa","fokusera","fordra","forma","formulera","forsa","forska","fortsätta","fostra","fota","fotografera","frakta","framföra","framhålla","framhäva","framkalla","framstå","framställa","framträda","fresta","fria","fridlysa","frigöra","frukta","frustrera","frysa","fråga","främja","fräsa","fullborda","fullfölja","fundera","fungera","funka","fylla","få","fånga","fäkta","fälla","fängsla","färdas","färga","fästa","föda","följa","föra","förakta","förankra","förarga","förbanna","förbereda","förbinda","förbjuda","förbli","förbluffa","förbruka","förbränna","förbättra","fördela","fördjupa","fördyra","fördöma","förebygga","föredra","förefalla","foregå","förekomma","förena","förenkla","föreslå","förestå","föreställa","förgifta","förgylla","forgå","förhandla","förhindra","förkasta","förklara","förknippa","förkorta","förlama","förlora","förlåta","förlänga","förmedla","förminska","förmå","förneka","förnärma","förse","försena","förstå","förstärka","förstöra","försvara","försvenska","försvinna","försämra","försöka","försörja","förtrolla","förtrycka","förtvivla","förtydliga","förundra","förutspå","förutsätta","förvalta","förvandla","förvara","förverkliga","förvirra","förvåna","förvänta","förvärva","förändra","föröda","förödmjuka","gala","gapa","garantera","ge","genera","genomföra","genomgå","genomskåda","genomtänka","gestalta","gilla","gipsa","gissa","glida","glimma","glöda","glömma","gnistra","godkänna","granska","gratulera","grava","grilla","gripa","grubbla","grunda","grundlägga","gry","gråta","grädda","gräla","gräva","gunga","gynna","gå","gälla","gömma","göra","ha","hacka","halka","halta","halvera","halvsova","hamna","handla","hantera","hata","heja","hejda","hembjuda","heta","hindra","hinna","hitta","hjälpa","hoppa","hosta","hota","hugga","hurra","hylla","hyra","hysa","hålla","hälla","hälsa","hämta","hända","hänga","hänvisa","härma","härstamma","hävda","höja","höra","iaktta","identifiera","ignorera","imitera","imponera","importera","indela","infalla","informera","införa","inge","ingripa","ingå","inkludera","inkoppla","inleda","inlemma","inlåna","innebära","innehålla","inrikta","inrätta","inse","inspirera","installera","instifta","instänga","integrera","intervjua","intressera","introducera","inträda","inträffa","invandra","investera","inviga","invälја","irritera","isolera","jaga","jobba","jogga","jollra","justera","jämföra","kalla","kamma","kartlägga","kasta","kila","klaga","klappa","klara","klassa","klicka","klinga","klippa","klistra","kliva","klä","klämma","klättra","knyta","knäppa","koka","kolla","kolonisera","kombinera","komma","kommendera","kommentera","kommunicera","kompensera","komplicera","komponera","komprimera","kompromissa","konkurrera","konstatera","konstruera","konsumera","kontakta","kontrollera","konversera","konvertera","koppla","korrigera","korsa","kosta","krama","kretsa","kriga","kritisera","krocka","krossa","kry","krydda","krypa","kryssa","krånga","kränka","kräva","kröka","kröna","kunna","kvalificera","kvida","kvitta","kvittra","kyssa","kämpa","känna","känneteckna","köpa","köra","ladda","laga","lagra","landa","lansera","lasta","le","leda","leja","leka","leta","leva","lida","lifta","ligga","likna","linda","lita","ljuga","locka","lossa","lova","lugna","lukta","lura","luta","lyckas","lyda","lyfta","lysa","lyssna","låna","låsa","låta","låtsa","låtsas","lägga","läka","lämna","längta","lär","lära","läsa","lätta","löpa","lösa","mala","mana","markera","maskera","mata","matcha","meddela","medföra","medge","medla","medverka","mejla","mena","meritera","minna","minska","missa","missbruka","missförstå","misshandla","missköta","misslyckas","misstänka","mista","mjölka","mobba","mogna","montera","mosa","motionera","motivera","motsvara","motta","motverka","mullra","muttra","mynna","mynta","mysa","må","måla","måste","mänga","märka","mäta","mätta","möblera","mönstra","mörda","mörkna","möta","neka","nia","nicka","njuta","notera","nå","nämna","närvara","obs","observera","odla","offra","ogilla","ombilda","omfatta","omge","omhänderta","omkomma","omväxla","operera","ordna","organisera","orka","oroa","orsaka","packa","paddla","para","parkera","passa","passera","peka","pendla","pensionera","peta","placera","planera","plantera","platsa","plocka","plugga","plundra","plåta","poängtera","prata","presentera","pressa","prioritera","privilegiera","producera","promenera","propagera","protestera","prova","provgå","provocera","pruta","pryda","prygla","prägla","pröva","publicera","putsa","pyssla","påbörja","påminna","påpeka","påstå","påträffa","påverka","ramla","rapa","rapportera","rasa","reagera","recensera","redigera","redovisa","referera","reflektera","regera","registrera","reglera","regna","rekommendera","relegera","renovera","rensa","reparera","repetera","representera","resa","reservera","resonera","respektera","resultera","reta","rida","rikta","rimma","ringa","rinna","riskera","rista","rita","riva","ro","rodna","ropa","rosta","rulla","rusa","ruska","rykta","rymma","ryta","råka","råna","räcka","rädda","räkna","rätta","röka","röra","rösta","röva","sabotera","sakna","salta","samarbeta","samla","sammanbo","sammanfatta","sammanhänga","samtala","satsa","se","segla","semestra","separera","servera","signalera","simma","sitta","sjunga","sjunka","skada","skaffa","skaka","skala","skapa","ske","skicka","skifta","skildra","skilja","skina","skjuta","skoja","skola","skolka","skrapa","skratta","skrika","skriva","skruva","skryta","skrämma","skydda","skyffla","skylla","skymma","skynda","skälla","skämma","skämta","skänka","skära","sköta","slakta","slarva","slicka","slingra","slinka","slipa","slippa","slita","sluka","sluta","slå","slåss","släcka","slänga","släppa","smaka","smaksätta","smeka","smickra","smida","smita","smitta","smyga","småprata","småäta","smälta","smärta","smörja","snacka","snatta","snickra","snubbla","snurra","snusa","snyfta","snöa","sola","somna","sortera","sova","spackla","spara","sparka","spegla","spekulera","spela","spika","spinna","splittra","sporta","spotta","spricka","sprida","springa","spränga","spänna","spärra","spöka","stanna","starta","stava","steka","sticka","stiga","stimulera","stinka","stirra","stjäla","stjälpa","stoppa","storhandla","straffa","strejka","stressa","stretcha","strida","strukturera","strunta","stryka","stråla","sträcka","sträva","strö","strömma","studera","stunda","stupa","stuva","styra","styrka","styrketräna","stå","städa","ställa","stämma","stänga","stänka","stärka","stödja","stöna","störa","störta","stöta","stötta","sucka","suga","summera","surfa","surra","susa","svalla","svara","svepa","svetta","svida","svika","svälja","svälta","svänga","svära","sväva","sy","syfta","syna","synas","sysselsätta","syssla","såga","såra","säga","säkra","sälja","sända","sänka","sätta","söka","ta","tacka","tala","tanka","tappa","tassa","teckna","telefonera","tendera","testa","tiga","tigga","tillaga","tillbringa","tilldela","tillfråga","tillföra","tillgodose","tillhöra","tillkomma","tillsätta","tilltala","tillverka","tillåta","tipsa","titta","tjata","tjuta","tjuvlyssna","tjäna","tjänstgöra","tolka","torka","tortera","tralla","trampa","transportera","traska","trassla","treva","trivas","tro","trolla","trycka","trä","träffa","träna","tränga","trösta","trötta","trötna","tugga","turista","tveka","tvinga","tvärbromsa","tvätta","tycka","tyda","tysta","tystna","tåga","tåla","täcka","tälta","tända","tänja","tänka","tätna","tävla","ugnsbaka","umgås","underhålla","underlätta","understryka","undersöka","underteckna","undervisa","undgå","undra","undvika","unna","uppbygga","uppdatera","uppfatta","uppfinna","uppfordra","uppfostra","uppfylla","uppge","uppgradera","uppgå","upphöja","upphöra","uppkalla","uppleva","upplysa","upplösa","uppmana","uppmuntra","uppmärksamma","uppnå","upprepa","uppröra","uppskatta","uppsluka","uppstå","uppträda","upptäcka","urskilja","ursäkta","utbilda","utbre","utbrista","utbyta","utebli","utelämna","utesluta","utforma","utföra","utgå","utgöra","utkomma","utmana","utmatta","utmärka","utnyttja","utplåna","utreda","utrota","utrusta","utse","utspelas","utsätta","uttala","uttrycka","utvandra","utveckla","utvidga","utöka","utöva","vakna","vakta","valla","valsa","vandra","vanka","vara","varda","variera","varna","varva","vattenfylla","vela","verka","veta","vicka","vidga","vidta","vifta","viga","vika","vila","vilja","vingla","vinka","vinna","virka","visa","viska","vispa","vistas","vittna","vrida","vrång","våga","vålla","vårda","väcka","väga","vägleda","vägra","välja","välkomna","välta","vända","vänja","vänslas","vänta","värdera","värma","värna","väsa","väva","växa","växla","yra","åka","ånga","ångra","åska","åstadkomma","återfinna","återge","återgå","återkomma","återlämna","återstå","återvända","åtskilja","äga","ägna","älska","älta","ändra","ära","ärva","äta","öka","önska","öppna","öva","överblicka","överdriva","överensstämma","överfalla","överföra","överge","övergå","överleva","överlämna","övernatta","överraska","överstiga","översätta","överta","övertala","övertyga","övervaka","övervintra"];
+
+const BATCH_SIZE = 20;
+let results = [];
+let running = false;
+let aborted = false;
+
+function log(msg, cls = '') {
+  const el = document.getElementById('log');
+  const p = document.createElement('p');
+  if (cls) p.className = cls;
+  p.textContent = msg;
+  el.appendChild(p);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setProgress(done, total) {
+  document.getElementById('prog-fill').style.width = (done/total*100) + '%';
+  document.getElementById('prog-count').textContent = done + ' / ' + total;
+}
+
+async function callClaude(verbs) {
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) throw new Error('API-nyckel saknas – fyll i din Mistral-nyckel ovan.');
+
+  const prompt = `Du är en svensk språkexpert. Ge verbformerna för dessa svenska verb: ${verbs.join(', ')}\n\nSvara ENDAST med ett JSON-array (inga förklaringar, inga kodblocksmarkeringar, ingen markdown). Format:\n[{"verb":"arbeta","infinitiv":"arbeta","imperativ":"arbeta","presens":"arbetar","preteritum":"arbetade","supinum":"arbetat"},...]\n\nVara noga med oregelbundna verb (t.ex. gå→går/gick/gått, vara→är/var/varit, ha→har/hade/haft, se→ser/såg/sett).`;
+
+  const resp = await fetch("https://api.mistral.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: "mistral-small-latest",
+      max_tokens: 4096,
+      temperature: 0.1,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err?.message || 'HTTP ' + resp.status);
+  }
+  const data = await resp.json();
+  const text = data.choices?.[0]?.message?.content || '';
+  const clean = text.replace(/```json|```/g, '').trim();
+  // Extract just the JSON array in case Mistral adds text before/after
+  const match = clean.match(/\[[\s\S]*\]/);
+  if (!match) throw new Error('Inget JSON-array hittades i svaret');
+  return JSON.parse(match[0]);
+}
+
+async function startProcessing() {
+  if (running) return;
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) {
+    document.getElementById('status-msg').className = 'status error';
+    document.getElementById('status-msg').textContent = '⚠ Fyll i din Mistral API-nyckel innan du startar.';
+    return;
+  }
+  running = true;
+  aborted = false;
+  results = [];
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-download').disabled = true;
+  document.getElementById('prog-text').textContent = 'Bearbetar…';
+  document.getElementById('log').innerHTML = '';
+
+  const total = VERBS.length;
+  const batches = [];
+  for (let i = 0; i < total; i += BATCH_SIZE) batches.push(VERBS.slice(i, i + BATCH_SIZE));
+
+  log(`Startar: ${total} verb i ${batches.length} omgångar à ${BATCH_SIZE} st.`);
+
+  let done = 0;
+  for (let bi = 0; bi < batches.length; bi++) {
+    if (aborted) break;
+    const batch = batches[bi];
+    document.getElementById('status-msg').textContent = `Omgång ${bi+1}/${batches.length}: ${batch[0]} – ${batch[batch.length-1]}…`;
+    let attempt = 0;
+    let ok = false;
+    while (attempt < 3 && !ok) {
+      try {
+        const parsed = await callClaude(batch);
+        for (const v of parsed) results.push(v);
+        done += batch.length;
+        setProgress(done, total);
+        log(`✓ Omgång ${bi+1}: ${batch.length} verb klara (totalt ${done})`, 'ok');
+        ok = true;
+      } catch(e) {
+        attempt++;
+        log(`⚠ Omgång ${bi+1} försök ${attempt} misslyckades: ${e.message}`, 'err');
+        if (attempt < 3) await new Promise(r => setTimeout(r, 10000)); // wait 10s before retry
+      }
+    }
+    if (!ok) log(`✗ Omgång ${bi+1} hoppas över efter 3 försök.`, 'err');
+    // 5s delay to stay within Gemini free tier (max 15 req/min)
+    await new Promise(r => setTimeout(r, 5000));
+  }
+
+  running = false;
+  document.getElementById('btn-start').disabled = false;
+
+  if (results.length > 0) {
+    document.getElementById('status-msg').className = 'status success';
+    document.getElementById('status-msg').textContent = `✓ Klart! ${results.length} verb konjugerade.`;
+    document.getElementById('prog-text').textContent = 'Färdig';
+    document.getElementById('btn-download').disabled = false;
+    showPreview();
+    log(`\nFärdigt! ${results.length} av ${total} verb bearbetade.`, 'ok');
+  }
+}
+
+function classifyGroup(v) {
+  const pre = (v.presens || '').toLowerCase();
+  const pret = (v.preteritum || '').toLowerCase();
+  const sup = (v.supinum || '').toLowerCase();
+
+  // Grupp 4: strong verbs – supinum ends in -it
+  if (sup.endsWith('it')) return '4';
+  // Grupp 1: presens -ar, preteritum -ade, supinum -at
+  if (pre.endsWith('ar') && pret.endsWith('ade') && sup.endsWith('at')) return '1';
+  // Grupp 3: short verbs – preteritum ends in -dde or -tto (bo→bodde, tro→trodde, sy→sydde)
+  if (pret.endsWith('dde') || pret.endsWith('tto') || sup.endsWith('tt')) return '3';
+  // Grupp 2b: preteritum -te
+  if (pret.endsWith('te')) return '2b';
+  // Grupp 2a: preteritum -de (not -ade, not -dde)
+  if (pret.endsWith('de')) return '2a';
+  return '?';
+}
+
+function showPreview() {
+  const tbody = document.querySelector('#preview-table tbody');
+  tbody.innerHTML = '';
+  const sample = results.slice(0, 10);
+  for (const v of sample) {
+    const g = classifyGroup(v);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${v.infinitiv||''}</td><td>${v.imperativ||''}</td><td>${v.presens||''}</td><td>${v.preteritum||''}</td><td>${v.supinum||''}</td><td><strong>${g}</strong></td>`;
+    tbody.appendChild(tr);
+  }
+  document.getElementById('preview').style.display = 'block';
+}
+
+function downloadExcel() {
+  if (!results.length) return;
+  const wsData = [['Infinitiv','Imperativ','Presens','Preteritum','Supinum','Grupp']];
+  for (const v of results) {
+    wsData.push([v.infinitiv||'', v.imperativ||'', v.presens||'', v.preteritum||'', v.supinum||'', classifyGroup(v)]);
+  }
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = [{wch:18},{wch:18},{wch:18},{wch:18},{wch:18},{wch:8}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Verbformer');
+  XLSX.writeFile(wb, 'svenska_verbformer.xlsx');
+}
+</script>
+</body>
+</html>
