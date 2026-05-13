@@ -244,20 +244,89 @@ function extrahera_json(text) {
 }
 
 // ---------------------------------------------------------------------------
-// Språkgranskare: kontrollerar om imperativformerna i kolumn B ser korrekta
-// ut och markerar misstänkta celler med gul bakgrund.
+// Oregelbundna imperativformer — verb där varken "samma som infinitiv" eller
+// "stryk sista -a" ger rätt svar.
+// Nyckel: infinitiv i gemener. Värde: korrekt imperativ (eller array med
+// alternativa godkända former).
 // ---------------------------------------------------------------------------
-function granskaimperativ() {
-  const sheet  = SpreadsheetApp.getActiveSheet();
-  const data   = sheet.getDataRange().getValues();
-  const apiKey = PropertiesService.getScriptProperties()
-    .getProperty('ANTHROPIC_API_KEY');
-  if (!apiKey) {
-    SpreadsheetApp.getUi().alert('Ingen API-nyckel sparad. Kör "Spara API-nyckel" först.');
-    return;
+const OREGELBUNDNA_IMP = {
+  'komma':    'kom',    // komma-a = komm, men rätt form är kom
+  'simma':    ['simm', 'sim'],
+  'glömma':   'glöm',
+  'rymma':    'rym',
+  'hämma':    'häm',
+  'klämma':   ['kläm', 'klämm'],
+  'stämma':   ['stäm', 'stämm'],
+  'skrämma':  ['skräm', 'skrämm'],
+  'gömma':    'göm',
+  'strömma':  ['ström', 'strömm'],
+  'blomma':   ['blom', 'blomm'],
+  'drömma':   'dröm',
+  'kamma':    ['kam', 'kamm'],
+  'gamma':    'gam',
+  'flamma':   ['flam', 'flamm'],
+  'gamma':    'gam',
+  'hamma':    ['ham', 'hamm'],
+  'lamma':    'lam',
+  'klamma':   'klam',
+  'stamma':   ['stam', 'stamm'],
+  'tvinga':   'tvinga',  // grupp 1: imperativ = infinitiv
+  'umgås':    'umgås',
+  'hoppas':   'hoppas',
+  'andas':    'andas',
+  'minnas':   'minns',
+  'trivas':   'trivs',
+  'kännas':   'känns',
+  'finnas':   'finns',
+  'fattas':   'fattas',
+  'saknas':   'saknas',
+  'kallas':   'kallas',
+  'verkas':   'verkas',
+  'låtsas':   'låtsas',
+  'vänslas':  'vänslas',
+  'synas':    'syns',
+  'hetas':    'hetas',
+  'sysslas':  'sysslas',
+  'umgås':    'umgås',
+};
+
+// ---------------------------------------------------------------------------
+// Kontrollerar om ett (infinitiv, imperativ)-par verkar korrekt.
+// Returnerar true = OK, false = misstänkt fel.
+// ---------------------------------------------------------------------------
+function imperativVerkarOk(inf, imp) {
+  inf = inf.toLowerCase().trim();
+  imp = imp.toLowerCase().trim();
+
+  if (!imp) return false;
+
+  // Kolla mot kända oregelbundna former
+  if (OREGELBUNDNA_IMP.hasOwnProperty(inf)) {
+    const ok = OREGELBUNDNA_IMP[inf];
+    if (Array.isArray(ok)) return ok.includes(imp);
+    return imp === ok;
   }
 
-  // Samla rader som har både infinitiv och imperativ
+  // Regel 1: imperativ = infinitiv (grupp 1, grupp 3, samt många -s-verb)
+  if (imp === inf) return true;
+
+  // Regel 2: stryk sista -a (grupp 2 och 4)
+  if (inf.endsWith('a') && imp === inf.slice(0, -1)) return true;
+
+  // Regel 3: -as-verb → stryk -as och lägg till -s  (t.ex. minnas → minns)
+  if (inf.endsWith('as') && imp === inf.slice(0, -2) + 's') return true;
+
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Regelbaserad språkgranskare — inga API-anrop, ingen kostnad.
+// Markerar celler i kolumn B vars imperativform avviker från kända regler.
+// ---------------------------------------------------------------------------
+function granskaimperativ() {
+  const sheet = SpreadsheetApp.getActiveSheet();
+  const data  = sheet.getDataRange().getValues();
+
   const rader = [];
   for (let i = 1; i < data.length; i++) {
     const inf = String(data[i][0] || '').trim();
@@ -272,89 +341,20 @@ function granskaimperativ() {
 
   // Rensa tidigare markeringar
   rader.forEach(r => sheet.getRange(r.radnr, 2).setBackground(null));
-  SpreadsheetApp.flush();
 
-  const GRANSKA_BATCH = 50;
-  let totalFlaggade   = 0;
-  let misslyckade     = 0;
-
-  for (let i = 0; i < rader.length; i += GRANSKA_BATCH) {
-    const batch = rader.slice(i, i + GRANSKA_BATCH);
-    let lyckat  = false;
-
-    for (let forsok = 1; forsok <= MAX_RETRIES; forsok++) {
-      try {
-        const flaggade = granskaBatch(batch, apiKey);
-        flaggade.forEach(inf => {
-          const rad = batch.find(r => r.inf === inf);
-          if (rad) {
-            sheet.getRange(rad.radnr, 2).setBackground('#FFD966'); // gul
-            totalFlaggade++;
-          }
-        });
-        SpreadsheetApp.flush();
-        lyckat = true;
-        break;
-      } catch (e) {
-        Logger.log(`Granskningsbatch ${i}–${i + GRANSKA_BATCH}, försök ${forsok}: ${e}`);
-        if (forsok < MAX_RETRIES) Utilities.sleep(RETRY_DELAY_S * 1000);
-      }
+  let flaggade = 0;
+  rader.forEach(({ radnr, inf, imp }) => {
+    if (!imperativVerkarOk(inf, imp)) {
+      sheet.getRange(radnr, 2).setBackground('#FFD966');
+      flaggade++;
     }
-
-    if (!lyckat) misslyckade++;
-  }
-
-  let meddelande = `Granskning klar.\n${totalFlaggade} misstänkta former markerade i gult.`;
-  if (misslyckade > 0) meddelande += `\n${misslyckade} batch(er) kunde inte granskas.`;
-  SpreadsheetApp.getUi().alert(meddelande);
-}
-
-// Skickar en batch par { inf, imp } till Claude och returnerar en lista med
-// infinitiverna för de par där imperativformen verkar felaktig.
-function granskaBatch(batch, apiKey) {
-  const parLista = batch.map(r => `${r.inf} → ${r.imp}`).join('\n');
-
-  const prompt =
-    'Du är en noggrann svensk språkgranskare.\n\n' +
-    'Nedan följer en lista med svenska verb i formatet "infinitiv → imperativ".\n' +
-    'Din uppgift är att identifiera de rader där imperativformen är FEL eller ' +
-    'INTE EXISTERAR som ett riktigt svenskt ord (t.ex. stavfel, felaktig verbgrupp, ' +
-    'form som aldrig används).\n\n' +
-    'Returnera ett JSON-objekt med en enda nyckel "fel" vars värde är en array med ' +
-    'infinitiverna (exakt stavning) för de felaktiga paren.\n' +
-    'Om allt är korrekt, returnera {"fel": []}.\n\n' +
-    'Svara ENDAST med JSON-objektet — ingen annan text, inga code fences.\n\n' +
-    'Verb att granska:\n' + parLista;
-
-  const response = UrlFetchApp.fetch(API_URL, {
-    method: 'post',
-    contentType: 'application/json',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01'
-    },
-    payload: JSON.stringify({
-      model: MODEL,
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }]
-    }),
-    muteHttpExceptions: true
   });
 
-  if (response.getResponseCode() !== 200) {
-    const kropp = response.getContentText();
-    try {
-      const felObj = JSON.parse(kropp);
-      throw new Error(`HTTP ${response.getResponseCode()}: ${felObj.error?.message || kropp}`);
-    } catch (_) {
-      throw new Error(`HTTP ${response.getResponseCode()}: ${kropp.substring(0, 300)}`);
-    }
-  }
-
-  const body    = JSON.parse(response.getContentText());
-  const rawText = body.content[0].text.trim();
-  const parsed  = extrahera_json(rawText);
-  return Array.isArray(parsed.fel) ? parsed.fel : [];
+  SpreadsheetApp.flush();
+  SpreadsheetApp.getUi().alert(
+    `Granskning klar (regelbaserad, inga API-anrop).\n` +
+    `${flaggade} misstänkta former markerade i gult av ${rader.length} kontrollerade.`
+  );
 }
 
 // ---------------------------------------------------------------------------
