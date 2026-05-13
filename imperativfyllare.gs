@@ -18,7 +18,8 @@ const MAX_KOT_MS    = 25 * 60 * 1000; // 25 min — säker marginal mot Workspac
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Verbverktyg')
-    .addItem('Fyll imperativ', 'fyllImperativ')
+    .addItem('Fyll imperativ (kolumn B)',  'fyllImperativ')
+    .addItem('Fyll verbgrupp (kolumn C)',  'fyllVerbgrupp')
     .addSeparator()
     .addItem('Granska imperativ (markera fel)', 'granskaimperativ')
     .addItem('Rensa markeringar', 'rensaMarkeringar')
@@ -162,6 +163,117 @@ function fyllImperativ() {
       'Tips: Kör "Testa API-anslutning" för att diagnostisera problemet.';
   }
   SpreadsheetApp.getUi().alert(meddelande);
+}
+
+// ---------------------------------------------------------------------------
+// Fyller kolumn C med verbgrupp (1, 2, 3 eller 4) för rader där C är tomt.
+// ---------------------------------------------------------------------------
+function fyllVerbgrupp() {
+  const start = Date.now();
+  const sheet = SpreadsheetApp.getActiveSheet();
+  const data  = sheet.getDataRange().getValues();
+
+  const attProcessa = [];
+  for (let i = 1; i < data.length; i++) {
+    const infinitiv = String(data[i][0] || '').trim();
+    const grupp     = String(data[i][2] || '').trim();
+    if (infinitiv && !grupp) {
+      attProcessa.push({ rad: i + 1, verb: infinitiv });
+    }
+  }
+
+  if (attProcessa.length === 0) {
+    SpreadsheetApp.getUi().alert('Inga tomma celler i kolumn C att fylla.');
+    return;
+  }
+
+  const apiKey = PropertiesService.getScriptProperties()
+    .getProperty('ANTHROPIC_API_KEY');
+  if (!apiKey) {
+    SpreadsheetApp.getUi().alert('Ingen API-nyckel sparad. Kör "Spara API-nyckel" först.');
+    return;
+  }
+
+  const totalt = attProcessa.length;
+  let klara = 0, misslyckadeBatcher = 0, forstaFelet = null;
+
+  for (let i = 0; i < totalt; i += BATCH_SIZE) {
+    if (Date.now() - start > MAX_KOT_MS) {
+      SpreadsheetApp.getUi().alert(
+        `Stoppade innan timeout. ${klara} av ${totalt} verb klara.\n` +
+        'Kör "Fyll verbgrupp" igen för att fortsätta.'
+      );
+      return;
+    }
+
+    const batch = attProcessa.slice(i, i + BATCH_SIZE);
+
+    for (let forsok = 1; forsok <= MAX_RETRIES; forsok++) {
+      try {
+        const mapping = anropaClaudeGrupp(batch.map(v => v.verb), apiKey);
+        batch.forEach(({ rad, verb }) => {
+          const g = mapping[verb];
+          if (g) { sheet.getRange(rad, 3).setValue(g); klara++; }
+        });
+        SpreadsheetApp.flush();
+        break;
+      } catch (e) {
+        Logger.log(`Gruppbatch rad ${batch[0].rad}, försök ${forsok}: ${e}`);
+        if (!forstaFelet) forstaFelet = String(e);
+        if (forsok === MAX_RETRIES) misslyckadeBatcher++;
+        else Utilities.sleep(RETRY_DELAY_S * 1000);
+      }
+    }
+  }
+
+  let meddelande;
+  if (misslyckadeBatcher === 0) {
+    meddelande = `Klart! ${klara} av ${totalt} verbgrupper ifyllda i kolumn C.`;
+  } else {
+    meddelande =
+      `Klart med ${klara} av ${totalt} verb.\n` +
+      `${misslyckadeBatcher} batch(er) misslyckades.\n\nFörsta felet:\n${forstaFelet}`;
+  }
+  SpreadsheetApp.getUi().alert(meddelande);
+}
+
+// Anropar Claude för att bestämma verbgrupp. Returnerar { infinitiv: "1"|"2"|"3"|"4" }.
+function anropaClaudeGrupp(verbLista, apiKey) {
+  const prompt =
+    'Ange verbgrupp (1, 2, 3 eller 4) för varje svenskt verb nedan.\n\n' +
+    'Definitioner:\n' +
+    '- Grupp 1: presens -ar, preteritum -ade, supinum -at (arbeta, tala, fråga)\n' +
+    '- Grupp 2: presens -er, preteritum -de eller -te, supinum -t (läsa, köpa, ringa, hjälpa)\n' +
+    '- Grupp 3: korta verb utan infinitiv-a, preteritum -dde, supinum -tt (bo, tro, sy)\n' +
+    '- Grupp 4: starka verb, preteritum vokalväxling, supinum -it (skriva, sjunga, komma, vara)\n\n' +
+    'Returnera ETT JSON-objekt där varje nyckel är infinitivverbet exakt som det stavas nedan\n' +
+    'och värdet är gruppnumret som en sträng: "1", "2", "3" eller "4".\n' +
+    'Svara ENDAST med JSON-objektet — ingen annan text, inga code fences.\n\n' +
+    'Verb:\n' + verbLista.join('\n');
+
+  const response = UrlFetchApp.fetch(API_URL, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    payload: JSON.stringify({
+      model: MODEL,
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }]
+    }),
+    muteHttpExceptions: true
+  });
+
+  if (response.getResponseCode() !== 200) {
+    try {
+      const fel = JSON.parse(response.getContentText());
+      throw new Error(`HTTP ${response.getResponseCode()}: ${fel.error?.message || response.getContentText()}`);
+    } catch(_) {
+      throw new Error(`HTTP ${response.getResponseCode()}: ${response.getContentText().substring(0, 200)}`);
+    }
+  }
+
+  const body = JSON.parse(response.getContentText());
+  return extrahera_json(body.content[0].text.trim());
 }
 
 // ---------------------------------------------------------------------------
