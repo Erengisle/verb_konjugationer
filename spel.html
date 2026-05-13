@@ -444,7 +444,7 @@ function buildGameView() {
       `<td class="td-grp">` +
         (hasGrupp
           ? `<div class="grp-picker" id="grp${i}">` +
-              ['1','2','3','4'].map(n =>
+              ['1','2a','2b','3','4'].map(n =>
                 `<button class="grp-btn" id="gb${i}_${n}" onclick="pickGrp(${i},'${n}')">${n}</button>`
               ).join('') +
             `</div>`
@@ -459,7 +459,7 @@ function buildGameView() {
 
 function pickGrp(rowIdx, val) {
   selGroups[rowIdx] = val;
-  ['1','2','3','4'].forEach(n => {
+  ['1','2a','2b','3','4'].forEach(n => {
     document.getElementById(`gb${rowIdx}_${n}`)?.classList.toggle('selected', n === val);
   });
 }
@@ -493,7 +493,7 @@ function checkAnswers() {
 
     // Group button styling
     if (hasGrupp && v.grupp) {
-      ['1','2','3','4'].forEach(n => {
+      ['1','2a','2b','3','4'].forEach(n => {
         const btn = document.getElementById(`gb${i}_${n}`);
         if (!btn) return;
         btn.disabled = true;
@@ -549,12 +549,12 @@ const SAMPLE_DATA = [
   {inf:'rita',    imp:'rita',   grupp:'1'}, {inf:'måla',    imp:'måla',   grupp:'1'},
   {inf:'hoppa',   imp:'hoppa',  grupp:'1'}, {inf:'cykla',   imp:'cykla',  grupp:'1'},
   {inf:'dansa',   imp:'dansa',  grupp:'1'}, {inf:'kämpa',   imp:'kämpa',  grupp:'1'},
-  // Grupp 2 och 4 – er-verb och starka
-  {inf:'läsa',    imp:'läs',    grupp:'2'}, {inf:'köpa',    imp:'köp',    grupp:'2'},
-  {inf:'sälja',   imp:'sälj',   grupp:'2'}, {inf:'hjälpa',  imp:'hjälp',  grupp:'2'},
-  {inf:'ringa',   imp:'ring',   grupp:'2'}, {inf:'stänga',  imp:'stäng',  grupp:'2'},
-  {inf:'leka',    imp:'lek',    grupp:'2'}, {inf:'känna',   imp:'känn',   grupp:'2'},
-  {inf:'tänka',   imp:'tänk',   grupp:'2'}, {inf:'klippa',  imp:'klipp',  grupp:'2'},
+  // Grupp 2a (preteritum -de) och 2b (preteritum -te)
+  {inf:'läsa',    imp:'läs',    grupp:'2b'}, {inf:'köpa',   imp:'köp',    grupp:'2b'},
+  {inf:'hjälpa',  imp:'hjälp',  grupp:'2b'}, {inf:'leka',   imp:'lek',    grupp:'2b'},
+  {inf:'tänka',   imp:'tänk',   grupp:'2b'}, {inf:'klippa', imp:'klipp',  grupp:'2b'},
+  {inf:'ringa',   imp:'ring',   grupp:'2a'}, {inf:'stänga', imp:'stäng',  grupp:'2a'},
+  {inf:'känna',   imp:'känn',   grupp:'2a'}, {inf:'sälja',  imp:'sälj',   grupp:'2a'},
   {inf:'skriva',  imp:'skriv',  grupp:'4'}, {inf:'sjunga',  imp:'sjung',  grupp:'4'},
   {inf:'bygga',   imp:'bygg',   grupp:'4'}, {inf:'springa', imp:'spring', grupp:'4'},
   {inf:'flyga',   imp:'flyg',   grupp:'4'}, {inf:'skjuta',  imp:'skjut',  grupp:'4'},

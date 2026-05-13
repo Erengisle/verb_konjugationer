@@ -240,14 +240,15 @@ function fyllVerbgrupp() {
 // Anropar Claude för att bestämma verbgrupp. Returnerar { infinitiv: "1"|"2"|"3"|"4" }.
 function anropaClaudeGrupp(verbLista, apiKey) {
   const prompt =
-    'Ange verbgrupp (1, 2, 3 eller 4) för varje svenskt verb nedan.\n\n' +
+    'Ange verbgrupp (1, 2a, 2b, 3 eller 4) för varje svenskt verb nedan.\n\n' +
     'Definitioner:\n' +
-    '- Grupp 1: presens -ar, preteritum -ade, supinum -at (arbeta, tala, fråga)\n' +
-    '- Grupp 2: presens -er, preteritum -de eller -te, supinum -t (läsa, köpa, ringa, hjälpa)\n' +
-    '- Grupp 3: korta verb utan infinitiv-a, preteritum -dde, supinum -tt (bo, tro, sy)\n' +
-    '- Grupp 4: starka verb, preteritum vokalväxling, supinum -it (skriva, sjunga, komma, vara)\n\n' +
+    '- Grupp 1:  presens -ar, preteritum -ade, supinum -at  (arbeta, tala, fråga)\n' +
+    '- Grupp 2a: presens -er, preteritum -de,  supinum -t   (ringa/ringde, leva/levde, stänga/stängde)\n' +
+    '- Grupp 2b: presens -er, preteritum -te,  supinum -t   (läsa/läste, köpa/köpte, hjälpa/hjälpte)\n' +
+    '- Grupp 3:  korta verb utan -a, preteritum -dde, supinum -tt (bo/bodde, tro/trodde, sy/sydde)\n' +
+    '- Grupp 4:  starka verb, preteritum vokalväxling, supinum -it (skriva/skrev, sjunga/sjöng, komma/kom)\n\n' +
     'Returnera ETT JSON-objekt där varje nyckel är infinitivverbet exakt som det stavas nedan\n' +
-    'och värdet är gruppnumret som en sträng: "1", "2", "3" eller "4".\n' +
+    'och värdet är gruppbeteckningen som en sträng: "1", "2a", "2b", "3" eller "4".\n' +
     'Svara ENDAST med JSON-objektet — ingen annan text, inga code fences.\n\n' +
     'Verb:\n' + verbLista.join('\n');
 
