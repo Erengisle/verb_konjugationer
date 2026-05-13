@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verbspel – Imperativ</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --blue:       #1565c0;
+  --blue-mid:   #1976d2;
+  --blue-light: #e3f2fd;
+  --yellow:     #fdd835;
+  --green:      #2e7d32;
+  --green-bg:   #e8f5e9;
+  --red:        #c62828;
+  --red-bg:     #ffebee;
+  --gray:       #546e7a;
+  --border:     #cfd8dc;
+  --bg:         #eceff1;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  color: #263238;
+}
+
+/* ── Header ── */
+header {
+  background: var(--blue);
+  color: white;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+header h1 { font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.chip {
+  background: var(--yellow);
+  color: #333;
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.load-btn {
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.35);
+  color: white;
+  border-radius: 7px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.load-btn:hover { background: rgba(255,255,255,.25); }
+
+/* ── Layout ── */
+main { max-width: 780px; margin: 0 auto; padding: 28px 16px 48px; }
+
+.card {
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  padding: 28px;
+  margin-bottom: 20px;
+}
+.card h2 { font-size: 1.15rem; margin-bottom: 10px; }
+
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── Setup ── */
+.hint {
+  font-size: 0.86rem;
+  color: var(--gray);
+  line-height: 1.65;
+  margin-bottom: 14px;
+}
+.hint code {
+  background: #f0f4f8;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.84em;
+}
+textarea.import-box {
+  width: 100%;
+  height: 220px;
+  padding: 12px;
+  border: 2px solid var(--border);
+  border-radius: 9px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  resize: vertical;
+  outline: none;
+  margin-bottom: 10px;
+}
+textarea.import-box:focus { border-color: var(--blue); }
+.err-msg { color: var(--red); font-size: 0.85rem; min-height: 1.2em; margin-bottom: 10px; }
+
+/* ── Groups ── */
+.groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.group-btn {
+  background: var(--blue);
+  color: white;
+  border: none;
+  border-radius: 11px;
+  padding: 18px 12px 14px;
+  cursor: pointer;
+  text-align: center;
+  transition: background .15s, transform .1s, box-shadow .15s;
+  box-shadow: 0 2px 6px rgba(21,101,192,.25);
+}
+.group-btn:hover {
+  background: var(--blue-mid);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(21,101,192,.3);
+}
+.group-btn strong { display: block; font-size: 1rem; }
+.group-btn .range { font-size: 0.78rem; opacity: .75; display: block; margin-top: 4px; }
+
+/* ── Game header bar ── */
+.game-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.back-btn {
+  background: none;
+  border: none;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.back-btn:hover { text-decoration: underline; }
+.game-title { font-size: 1rem; font-weight: 700; color: #455a64; }
+
+/* ── Score banner ── */
+.score-banner {
+  background: linear-gradient(135deg, var(--blue), #1976d2);
+  color: white;
+  border-radius: 12px;
+  padding: 20px 28px;
+  text-align: center;
+  margin-bottom: 20px;
+  display: none;
+  animation: fadeIn .3s ease;
+}
+.score-banner.show { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; } }
+.score-big { font-size: 2.6rem; font-weight: 800; line-height: 1; }
+.score-sub { font-size: 0.95rem; opacity: .9; margin-top: 6px; }
+
+/* ── Verb table ── */
+.verb-table { width: 100%; border-collapse: collapse; }
+.verb-table thead th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--gray);
+  font-weight: 700;
+  border-bottom: 2px solid var(--border);
+}
+.verb-row td {
+  padding: 7px 12px;
+  border-bottom: 1px solid #f0f4f8;
+  vertical-align: middle;
+}
+.verb-row:last-child td { border-bottom: none; }
+.td-num {
+  width: 32px;
+  color: #90a4ae;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: right;
+  padding-right: 6px !important;
+  user-select: none;
+}
+.td-inf { width: 36%; font-weight: 600; font-size: 1.05rem; }
+.td-inp { width: 40%; }
+.td-fb  { width: 20%; padding-left: 8px !important; }
+
+.v-input {
+  width: 100%;
+  padding: 8px 11px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color .15s, background .15s;
+  background: white;
+}
+.v-input:focus { border-color: var(--blue); }
+.v-input.ok   { border-color: var(--green); background: var(--green-bg); color: var(--green); font-weight: 600; }
+.v-input.fail { border-color: var(--red);   background: var(--red-bg);   color: var(--red); }
+
+.fb-ok   { color: var(--green); font-weight: 700; font-size: 1rem; }
+.fb-fail { color: var(--red); font-size: 0.82rem; line-height: 1.3; }
+.fb-fail .correct { font-weight: 700; font-size: 0.95rem; display: block; }
+
+/* ── Button row ── */
+.btn-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  justify-content: flex-end;
+}
+.btn {
+  padding: 11px 22px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-primary { background: var(--blue); color: white; }
+.btn-primary:hover { background: var(--blue-mid); }
+.btn-outline { background: white; color: var(--blue); border: 2px solid var(--blue); }
+.btn-outline:hover { background: var(--blue-light); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🇸🇪 Verbspel <span class="chip" id="verb-chip"></span></h1>
+  <button class="load-btn" onclick="showSetup()">⚙ Ladda verb</button>
+</header>
+
+<main>
+
+  <!-- ── Setup ── -->
+  <div id="view-setup" class="view">
+    <div class="card">
+      <h2>Ladda verblistа</h2>
+      <p class="hint">
+        Öppna ditt Google Sheet, markera kolumn&nbsp;A och&nbsp;B (infinitiv + imperativ),
+        kopiera med <code>Ctrl+C</code> och klistra in nedan.<br>
+        Format per rad: <code>infinitiv[TAB]imperativ</code>
+      </p>
+      <textarea class="import-box" id="import-area"
+        placeholder="läsa	läs&#10;skriva	skriv&#10;arbeta	arbeta&#10;…"></textarea>
+      <div class="err-msg" id="import-err"></div>
+      <div class="btn-row" style="justify-content:flex-start; margin-top:0;">
+        <button class="btn btn-primary" onclick="importData()">Spara och starta</button>
+        <button class="btn btn-outline" onclick="showGroups()">Avbryt</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Groups ── -->
+  <div id="view-groups" class="view">
+    <div class="card">
+      <h2>Välj en grupp</h2>
+      <p class="hint" style="margin-bottom:0;">Varje grupp innehåller 20 verb. Skriv imperativformen och klicka Kontrollera.</p>
+      <div class="groups-grid" id="groups-grid"></div>
+    </div>
+  </div>
+
+  <!-- ── Game ── -->
+  <div id="view-game" class="view">
+    <div class="game-nav">
+      <button class="back-btn" onclick="showGroups()">← Välj grupp</button>
+      <span class="game-title" id="game-title"></span>
+    </div>
+    <div class="score-banner" id="score-banner">
+      <div class="score-big" id="score-big"></div>
+      <div class="score-sub" id="score-sub"></div>
+    </div>
+    <div class="card" style="padding: 16px 20px;">
+      <table class="verb-table">
+        <thead>
+          <tr>
+            <th class="td-num">#</th>
+            <th>Infinitiv</th>
+            <th>Imperativ</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="verb-tbody"></tbody>
+      </table>
+      <div class="btn-row">
+        <button class="btn btn-outline" id="btn-retry" style="display:none" onclick="resetGame()">
+          Försök igen
+        </button>
+        <button class="btn btn-primary" id="btn-check" onclick="checkAnswers()">
+          Kontrollera svar
+        </button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── Storage & state ──────────────────────────────────────────────────────────
+
+const STORAGE_KEY = 'verbspel_v1';
+const GROUP_SIZE  = 20;
+
+let pairs = [];       // [{inf, imp}, …]
+let activeGroup = 0;
+
+// ── Bootstrap ────────────────────────────────────────────────────────────────
+
+(function boot() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try { pairs = JSON.parse(saved); } catch(_) {}
+  }
+  if (!pairs.length) pairs = SAMPLE_DATA;
+  updateChip();
+  showGroups();
+})();
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showSetup() { showView('view-setup'); }
+
+function showGroups() {
+  buildGroupGrid();
+  showView('view-groups');
+}
+
+function startGroup(idx) {
+  activeGroup = idx;
+  buildGameView();
+  showView('view-game');
+}
+
+// ── Import ───────────────────────────────────────────────────────────────────
+
+function importData() {
+  const raw    = document.getElementById('import-area').value.trim();
+  const errEl  = document.getElementById('import-err');
+  errEl.textContent = '';
+
+  if (!raw) { errEl.textContent = 'Klistra in data först.'; return; }
+
+  const parsed = [];
+  let bad = 0;
+  raw.split('\n').forEach(line => {
+    const parts = line.trim().split('\t');
+    if (parts.length >= 2) {
+      const inf = parts[0].trim().toLowerCase();
+      const imp = parts[1].trim().toLowerCase();
+      if (inf && imp) parsed.push({ inf, imp });
+      else bad++;
+    } else if (line.trim()) {
+      bad++;
+    }
+  });
+
+  if (!parsed.length) {
+    errEl.textContent = 'Ingen giltig data hittades. Kontrollera att du kopierade kolumn A och B.';
+    return;
+  }
+  if (bad) errEl.textContent = `${bad} rader ignorerades (fel format). ${parsed.length} verb sparade.`;
+
+  pairs = parsed;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(pairs));
+  updateChip();
+  showGroups();
+}
+
+// ── Groups ───────────────────────────────────────────────────────────────────
+
+function getGroups() {
+  const out = [];
+  for (let i = 0; i < pairs.length; i += GROUP_SIZE) {
+    out.push(pairs.slice(i, i + GROUP_SIZE));
+  }
+  return out;
+}
+
+function buildGroupGrid() {
+  const grid   = document.getElementById('groups-grid');
+  const groups = getGroups();
+  grid.innerHTML = '';
+  groups.forEach((g, i) => {
+    const from = i * GROUP_SIZE + 1;
+    const to   = i * GROUP_SIZE + g.length;
+    const btn  = document.createElement('button');
+    btn.className = 'group-btn';
+    btn.innerHTML = `<strong>Grupp ${i + 1}</strong><span class="range">verb ${from}–${to}</span>`;
+    btn.onclick   = () => startGroup(i);
+    grid.appendChild(btn);
+  });
+}
+
+function updateChip() {
+  document.getElementById('verb-chip').textContent = pairs.length + ' verb';
+}
+
+// ── Game ─────────────────────────────────────────────────────────────────────
+
+function groupVerbs() { return getGroups()[activeGroup] || []; }
+
+function buildGameView() {
+  const verbs  = groupVerbs();
+  const from   = activeGroup * GROUP_SIZE + 1;
+  const to     = activeGroup * GROUP_SIZE + verbs.length;
+
+  document.getElementById('game-title').textContent =
+    `Grupp ${activeGroup + 1} · verb ${from}–${to}`;
+  document.getElementById('score-banner').classList.remove('show');
+  document.getElementById('btn-check').style.display = '';
+  document.getElementById('btn-retry').style.display = 'none';
+
+  const tbody = document.getElementById('verb-tbody');
+  tbody.innerHTML = '';
+  verbs.forEach((v, i) => {
+    const tr = document.createElement('tr');
+    tr.className = 'verb-row';
+    tr.innerHTML =
+      `<td class="td-num">${i + 1}</td>` +
+      `<td class="td-inf">${esc(v.inf)}</td>` +
+      `<td class="td-inp">` +
+        `<input class="v-input" id="i${i}"` +
+        ` autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"` +
+        ` placeholder="…" onkeydown="nav(event,${i},${verbs.length})">` +
+      `</td>` +
+      `<td class="td-fb" id="f${i}"></td>`;
+    tbody.appendChild(tr);
+  });
+
+  setTimeout(() => document.getElementById('i0')?.focus(), 60);
+}
+
+function nav(e, idx, total) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const next = document.getElementById(`i${idx + 1}`);
+  if (next) next.focus();
+  else checkAnswers();
+}
+
+function checkAnswers() {
+  const verbs   = groupVerbs();
+  let   correct = 0;
+
+  verbs.forEach((v, i) => {
+    const inp = document.getElementById(`i${i}`);
+    const fb  = document.getElementById(`f${i}`);
+    const val = inp.value.trim().toLowerCase();
+    const ok  = val === v.imp.toLowerCase();
+
+    inp.classList.remove('ok', 'fail');
+    inp.classList.add(ok ? 'ok' : 'fail');
+    inp.disabled = true;
+
+    if (ok) {
+      correct++;
+      fb.innerHTML = '<span class="fb-ok">✓</span>';
+    } else {
+      fb.innerHTML =
+        `<span class="fb-fail">✗<span class="correct">${esc(v.imp)}</span></span>`;
+    }
+  });
+
+  const pct   = Math.round(correct / verbs.length * 100);
+  const emoji = correct === verbs.length ? '🎉' : pct >= 80 ? '👍' : '📚';
+
+  document.getElementById('score-big').textContent = `${emoji} ${correct} / ${verbs.length}`;
+  document.getElementById('score-sub').textContent =
+    correct === verbs.length
+      ? 'Perfekt! Alla rätt!'
+      : `${pct} % rätt – kolla de röda svaren och försök igen`;
+  document.getElementById('score-banner').classList.add('show');
+  document.getElementById('btn-check').style.display = 'none';
+  document.getElementById('btn-retry').style.display = '';
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetGame() { buildGameView(); }
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Sample data (3 × 20 verb) ────────────────────────────────────────────────
+
+const SAMPLE_DATA = [
+  // Grupp 1 – ar-verb: imperativ = infinitiv
+  {inf:'arbeta',  imp:'arbeta'}, {inf:'tala',   imp:'tala'},
+  {inf:'fråga',   imp:'fråga'},  {inf:'svara',  imp:'svara'},
+  {inf:'titta',   imp:'titta'},  {inf:'lyssna', imp:'lyssna'},
+  {inf:'vänta',   imp:'vänta'},  {inf:'hämta',  imp:'hämta'},
+  {inf:'öppna',   imp:'öppna'},  {inf:'städa',  imp:'städa'},
+  {inf:'tvätta',  imp:'tvätta'}, {inf:'baka',   imp:'baka'},
+  {inf:'laga',    imp:'laga'},   {inf:'räkna',  imp:'räkna'},
+  {inf:'rita',    imp:'rita'},   {inf:'måla',   imp:'måla'},
+  {inf:'hoppa',   imp:'hoppa'},  {inf:'cykla',  imp:'cykla'},
+  {inf:'dansa',   imp:'dansa'},  {inf:'kämpa',  imp:'kämpa'},
+  // Grupp 2 – er-verb och starka: imperativ = infinitiv minus -a
+  {inf:'skriva',  imp:'skriv'},  {inf:'läsa',   imp:'läs'},
+  {inf:'sjunga',  imp:'sjung'},  {inf:'köpa',   imp:'köp'},
+  {inf:'sälja',   imp:'sälj'},   {inf:'hjälpa', imp:'hjälp'},
+  {inf:'bygga',   imp:'bygg'},   {inf:'ringa',  imp:'ring'},
+  {inf:'springa', imp:'spring'}, {inf:'stänga', imp:'stäng'},
+  {inf:'flyga',   imp:'flyg'},   {inf:'skjuta', imp:'skjut'},
+  {inf:'bita',    imp:'bit'},    {inf:'binda',  imp:'bind'},
+  {inf:'leka',    imp:'lek'},    {inf:'känna',  imp:'känn'},
+  {inf:'tänka',   imp:'tänk'},   {inf:'dricka', imp:'drick'},
+  {inf:'skrika',  imp:'skrik'},  {inf:'klippa', imp:'klipp'},
+  // Grupp 3 – oregelbundna + grupp 3 (korta verb)
+  {inf:'komma',   imp:'kom'},    {inf:'gå',     imp:'gå'},
+  {inf:'ta',      imp:'ta'},     {inf:'ge',     imp:'ge'},
+  {inf:'vara',    imp:'var'},    {inf:'göra',   imp:'gör'},
+  {inf:'ha',      imp:'ha'},     {inf:'se',     imp:'se'},
+  {inf:'bo',      imp:'bo'},     {inf:'tro',    imp:'tro'},
+  {inf:'stå',     imp:'stå'},    {inf:'sätta',  imp:'sätt'},
+  {inf:'lägga',   imp:'lägg'},   {inf:'sitta',  imp:'sitt'},
+  {inf:'ligga',   imp:'ligg'},   {inf:'förstå', imp:'förstå'},
+  {inf:'le',      imp:'le'},     {inf:'be',     imp:'be'},
+  {inf:'slå',     imp:'slå'},    {inf:'dra',    imp:'dra'},
+];
+</script>
+</body>
+</html>
