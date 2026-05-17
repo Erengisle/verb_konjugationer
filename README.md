@@ -1,6 +1,6 @@
 # 🇸🇪 Svensk Verbkonjugering
 
-Genererar 5 verbformer (infinitiv, imperativ, presens, preteritum, supinum) samt verbgrupp (1, 2a, 2b, 3, 4) för 1 223 svenska verb – helt gratis via Google Gemini AI.
+Genererar 5 verbformer (infinitiv, imperativ, presens, preteritum, supinum) samt verbgrupp (1, 2a, 2b, 3, 4) för 1 223 svenska verb – helt gratis via Mistral AI.
 
 ## 🚀 Kom igång på 5 minuter
 
@@ -25,16 +25,15 @@ https://DITTANVÄNDARNAMN.github.io/svensk-verbkonjugering/
 
 ---
 
-### 2. Skaffa gratis Gemini API-nyckel
+### 2. Skaffa gratis Mistral API-nyckel
 
-1. Gå till [aistudio.google.com](https://aistudio.google.com)
-2. Logga in med ditt Google-konto
-3. Klicka **Get API key** → **Create API key**
-4. Kopiera nyckeln (börjar med `AIza...`)
+1. Gå till [console.mistral.ai](https://console.mistral.ai)
+2. Skapa ett konto eller logga in
+3. Klicka **API Keys** → **Create new key**
+4. Kopiera nyckeln
 
 Gratistjänsten inkluderar:
-- 15 anrop per minut
-- 1 miljon tokens per dag
+- Gratis tier utan kreditkort
 - Ingen kreditkortsinformation krävs
 
 ---
@@ -73,6 +72,6 @@ Gratistjänsten inkluderar:
 ## 🛠 Teknisk info
 
 - Helt fristående HTML-fil – ingen server, inget bygge, inga beroenden att installera
-- Använder [Google Gemini 2.0 Flash](https://ai.google.dev/) via REST API
+- Använder [Mistral AI](https://mistral.ai/) (mistral-small-latest) via REST API
 - Excel-export via [SheetJS](https://sheetjs.com/)
 - Fungerar i alla moderna webbläsare

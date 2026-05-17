@@ -42,7 +42,7 @@
 <body>
 <div class="card">
   <h1>🇸🇪 Svensk Verbkonjugering</h1>
-  <p class="subtitle">Genererar 5 verbformer + grupp för 1 223 svenska verb – helt gratis via Google Gemini.</p>
+  <p class="subtitle">Genererar 5 verbformer + grupp för 1 223 svenska verb – helt gratis via Mistral AI.</p>
 
   <div class="info-box">
     Använder <strong>Mistral AI (gratis)</strong> – inget betalkort krävs. Hämta din gratis API-nyckel på
@@ -108,11 +108,11 @@ function setProgress(done, total) {
   document.getElementById('prog-count').textContent = done + ' / ' + total;
 }
 
-async function callClaude(verbs) {
+async function callMistral(verbs) {
   const apiKey = document.getElementById('api-key').value.trim();
   if (!apiKey) throw new Error('API-nyckel saknas – fyll i din Mistral-nyckel ovan.');
 
-  const prompt = `Du är en svensk språkexpert. Ge verbformerna för dessa svenska verb: ${verbs.join(', ')}\n\nSvara ENDAST med ett JSON-array (inga förklaringar, inga kodblocksmarkeringar, ingen markdown). Format:\n[{"verb":"arbeta","infinitiv":"arbeta","imperativ":"arbeta","presens":"arbetar","preteritum":"arbetade","supinum":"arbetat"},...]\n\nVara noga med oregelbundna verb (t.ex. gå→går/gick/gått, vara→är/var/varit, ha→har/hade/haft, se→ser/såg/sett).`;
+  const prompt = `Du är en svensk språkexpert. Ge verbformerna för dessa svenska verb: ${verbs.join(', ')}\n\nSvara ENDAST med ett JSON-array (inga förklaringar, inga kodblocksmarkeringar, ingen markdown). Format:\n[{"infinitiv":"arbeta","imperativ":"arbeta","presens":"arbetar","preteritum":"arbetade","supinum":"arbetat"},...]\n\nVara noga med oregelbundna verb (t.ex. gå→går/gick/gått, vara→är/var/varit, ha→har/hade/haft, se→ser/såg/sett).`;
 
   const resp = await fetch("https://api.mistral.ai/v1/chat/completions", {
     method: "POST",
@@ -171,7 +171,7 @@ async function startProcessing() {
     let ok = false;
     while (attempt < 3 && !ok) {
       try {
-        const parsed = await callClaude(batch);
+        const parsed = await callMistral(batch);
         for (const v of parsed) results.push(v);
         done += batch.length;
         setProgress(done, total);
@@ -184,7 +184,7 @@ async function startProcessing() {
       }
     }
     if (!ok) log(`✗ Omgång ${bi+1} hoppas över efter 3 försök.`, 'err');
-    // 5s delay to stay within Gemini free tier (max 15 req/min)
+    // 5s delay between batches to avoid Mistral rate limits
     await new Promise(r => setTimeout(r, 5000));
   }
 
@@ -210,8 +210,8 @@ function classifyGroup(v) {
   if (sup.endsWith('it')) return '4';
   // Grupp 1: presens -ar, preteritum -ade, supinum -at
   if (pre.endsWith('ar') && pret.endsWith('ade') && sup.endsWith('at')) return '1';
-  // Grupp 3: short verbs – preteritum ends in -dde or -tto (bo→bodde, tro→trodde, sy→sydde)
-  if (pret.endsWith('dde') || pret.endsWith('tto') || sup.endsWith('tt')) return '3';
+  // Grupp 3: short verbs – preteritum ends in -dde (bo→bodde, tro→trodde, sy→sydde)
+  if (pret.endsWith('dde') || sup.endsWith('tt')) return '3';
   // Grupp 2b: preteritum -te
   if (pret.endsWith('te')) return '2b';
   // Grupp 2a: preteritum -de (not -ade, not -dde)
